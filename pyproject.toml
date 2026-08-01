@@ -1,0 +1,43 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# --cov 引数なし: pyproject の coverage.run 設定を使う
+# （`--cov=db` だと同名の db/ フォルダが優先され db.py が測れない）
+addopts = [
+    "-q",
+    "--cov",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::ResourceWarning",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "gui.py",
+    "main.py",
+    "tests/*",
+    "db/*",
+    ".venv/*",
+    "venv/*",
+]
+branch = false
+
+[tool.coverage.report]
+include = [
+    "normalize.py",
+    "db.py",
+    "merge.py",
+    "analyze.py",
+    "paths.py",
+]
+show_missing = true
+skip_empty = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
