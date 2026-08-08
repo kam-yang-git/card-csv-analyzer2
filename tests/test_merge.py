@@ -28,18 +28,22 @@ def test_merge_with_exclusions(app_dirs, sample_profile, fixtures_dir):
     assert result.ok is True
     assert result.inserted_rows >= 2
     assert result.has_exclusions is True
-    assert result.excluded_rows >= 2
+    assert result.excluded_rows >= 5
     assert result.merged_rows >= 2
 
     log_text = result.log_path.read_text(encoding="utf-8")
     assert "[START]" in log_text
     assert "[EXCLUDE]" in log_text
+    assert "empty_merchant" in log_text
     assert "[END]" in log_text
     assert "status=completed" in log_text
 
     rows = db.list_transactions()
     amounts = {r["利用金額"] for r in rows}
     assert -200 in amounts
+    assert all(str(r["利用店名"]).strip() for r in rows)
+    unreg_keys = {r["lookup_key"] for r in db.list_unregistered_merchants()}
+    assert "" not in unreg_keys
 
 
 def test_merge_header_mismatch_aborts(app_dirs, sample_profile, fixtures_dir):
@@ -123,6 +127,14 @@ def test_preview_csv_no_valid_rows(app_dirs, sample_profile, tmp_path):
     bad.write_text("利用日,利用店名,利用金額\nbad,店,xxx\n", encoding="utf-8")
     with pytest.raises(MergeValidationError):
         preview_csv(bad, sample_profile)
+
+    empty_merchant = tmp_path / "empty_merchant.csv"
+    empty_merchant.write_text(
+        "利用日,利用店名,利用金額\n2026/01/10,,1000\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(MergeValidationError):
+        preview_csv(empty_merchant, sample_profile)
 
 
 def test_validate_file(app_dirs, sample_profile, fixtures_dir):

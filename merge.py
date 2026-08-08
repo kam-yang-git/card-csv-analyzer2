@@ -134,7 +134,7 @@ def validate_headers(df: pd.DataFrame, profile: dict[str, Any], filename: str) -
 
 
 def preview_csv(path: Path, profile: dict[str, Any], limit: int = 20) -> pd.DataFrame:
-    """テスト読込用。日付・金額を変換できた行だけ先頭から返す。"""
+    """テスト読込用。日付・金額を変換でき、店名が空でない行だけ先頭から返す。"""
     df = read_csv_with_profile(path, profile)
     validate_headers(df, profile, path.name)
     rows: list[dict[str, Any]] = []
@@ -145,6 +145,8 @@ def preview_csv(path: Path, profile: dict[str, Any], limit: int = 20) -> pd.Data
 
     for offset, (_, series) in enumerate(df.iterrows()):
         source_line = header_row + 1 + offset  # 元ファイル上の行番号
+        raw_merchant = series.get(merchant_col, "")
+        merchant = str(raw_merchant).strip()
         dt = parse_date(series.get(date_col), profile["date_format"])
         amount = parse_amount(
             series.get(amount_col),
@@ -152,13 +154,13 @@ def preview_csv(path: Path, profile: dict[str, Any], limit: int = 20) -> pd.Data
             currency_symbol=profile.get("currency_symbol") or "",
             minus_format=profile.get("minus_format") or "sign",
         )
-        if dt is None or amount is None:
+        if dt is None or amount is None or not merchant:
             continue
         rows.append(
             {
                 "取込行番号": source_line,
                 "利用年月日": format_date(dt),
-                "利用店名": str(series.get(merchant_col, "")),
+                "利用店名": str(raw_merchant),
                 "利用金額": format_amount(amount),
             }
         )
@@ -226,15 +228,18 @@ def _process_file(
             currency_symbol=profile.get("currency_symbol") or "",
             minus_format=profile.get("minus_format") or "sign",
         )
+        merchant = str(raw_merchant).strip()
 
-        # 日付か金額が読めない行は除外（マージ自体は続行）
-        if dt is None or amount is None:
+        # 日付・金額が読めない、または店名が空の行は除外（マージ自体は続行）
+        if dt is None or amount is None or not merchant:
             excluded += 1
             reason = []
             if dt is None:
                 reason.append("invalid_date")
             if amount is None:
                 reason.append("invalid_amount")
+            if not merchant:
+                reason.append("empty_merchant")
             logger.write(
                 "EXCLUDE",
                 f"file={path.name} line={source_line} reason={'+'.join(reason)} "

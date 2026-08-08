@@ -228,7 +228,7 @@ lookup_key = NFKC(原文).strip()
   → 指定encodingで読込
   → header_row / footer_rows 適用
   → 期待ヘッダー検証（失敗=検証エラー→全体中止）
-  → 行ごとに日付・金額変換
+  → 行ごとに日付・金額変換、店名空チェック
       失敗行 → 除外（ログ記録、処理継続）
       成功行 → 店名照合・分類付与・明細化
   ↓
@@ -252,7 +252,8 @@ lookup_key = NFKC(原文).strip()
 5. 各データ行:
    - 日付: `date_format` で解析 → 内部は date/datetime、保存は `%Y/%m/%d`
    - 金額: 通貨記号・カンマ除去、`minus_format` に応じて符号処理 → 整数
-   - 日付または金額が変換不可 → 除外行
+   - 店名: 前後空白を除去したうえで空でないこと
+   - 日付または金額が変換不可、または店名が空 → 除外行
 6. 有効明細が0件 → 検証エラー（全体中止）
 
 ### 5.3 金額・日付の扱い
@@ -272,7 +273,7 @@ lookup_key = NFKC(原文).strip()
 
 | 種別 | 例 | マージ結果 | UI |
 |------|-----|------------|-----|
-| 除外行 | 合計行、空行、日付不正 | 有効明細はDBへ登録 | 全処理後にログ誘導ポップアップ |
+| 除外行 | 合計行、空行、日付不正、店名空 | 有効明細はDBへ登録 | 全処理後にログ誘導ポップアップ |
 | 検証エラー | 文字コード失敗、ヘッダー不一致 | DB登録しない | 即中止、ログ誘導ポップアップ |
 
 除外の詳細（ファイル名、行番号、元データ抜粋など）はログのみ。ポップアップ本文は固定文言。
@@ -424,6 +425,7 @@ data/app.db の transactions を読込
 [START] 2026-07-20 12:50:00 merge started
 [INFO]  file=a.csv profile=A社カード
 [EXCLUDE] file=a.csv line=120 reason=invalid_date raw=...
+[EXCLUDE] file=a.csv line=121 reason=empty_merchant date=... amount=... merchant=''
 [ERROR] file=b.csv reason=header_mismatch detail=...
 [END] status=aborted|completed inserted_rows=... skipped_rows=... excluded_rows=...
 ```
